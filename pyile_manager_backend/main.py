@@ -3,23 +3,24 @@ Pyile Manager - AI-powered intelligent file manager.
 Main entry point with FastAPI server and file monitoring.
 """
 
-import time
 import json
 import os
 import re
 import shutil
 import subprocess
 import threading
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from ollama_api import rename_file_on_disk, rename_file_with_ai, load_models_from_settings
-from setting import AppConfig
 from watchdog.events import DirCreatedEvent, FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
+
+from ollama_api import load_models_from_settings, rename_file_on_disk, rename_file_with_ai
+from setting import AppConfig
 
 # ============================================================================
 # Configuration Loading
@@ -75,7 +76,7 @@ class ConnectionManager:
             except Exception as e:
                 print(f"Error sending to websocket: {e}")
                 disconnected.append(connection)
-        
+
         # Remove disconnected clients
         for conn in disconnected:
             if conn in self.active_connections:
@@ -189,7 +190,7 @@ class NewFileHandler(FileSystemEventHandler):
 
         # Try to get source URL from metadata
         source_url = get_metadata_mdls(src_path)
-        
+
         # Track the current file path (it may change after moving)
         current_path = src_path
 
@@ -237,31 +238,33 @@ class NewFileHandler(FileSystemEventHandler):
             # Move file
             shutil.move(src_path, str(dest_path))
             print(f"File moved: {filename} -> {destination}")
-            
+
             # Broadcast notification
-            self._broadcast_notification({
-                "type": "file_moved",
-                "filename": filename,
-                "from": src_path,
-                "to": str(dest_path),
-                "destination": destination,
-                "timestamp": time.time()
-            })
-            
+            self._broadcast_notification(
+                {
+                    "type": "file_moved",
+                    "filename": filename,
+                    "from": src_path,
+                    "to": str(dest_path),
+                    "destination": destination,
+                    "timestamp": time.time(),
+                }
+            )
+
             # Return the new path
             return str(dest_path)
-        
+
         return None
 
     def _should_rename_file(self, file_path: str) -> bool:
         """Check if file should be renamed based on configuration."""
-        
+
         # Skip if this file was just renamed (prevents double-rename)
         if file_path in self.recently_renamed:
             print(f"Skipping recently renamed file: {Path(file_path).name}")
             self.recently_renamed.discard(file_path)
             return False
-        
+
         if not self.config.settings.rename_by_ai:
             print(f"AI rename disabled in settings for: {file_path}")
             return False
@@ -270,13 +273,13 @@ class NewFileHandler(FileSystemEventHandler):
         print(f"Checking rename for file: {file_path}")
         print(f"  File directory: {file_dir}")
         print(f"  Rename directories in config: {self.config.schema.rename}")
-        
+
         for rename_dir in self.config.schema.rename:
             if file_dir.startswith(rename_dir):
                 print(f"  ✓ Match found with: {rename_dir}")
                 return True
-        
-        print(f"  ✗ No match found")
+
+        print("  ✗ No match found")
         return False
 
     def _rename_file_with_ai(self, file_path: str) -> None:
@@ -290,22 +293,25 @@ class NewFileHandler(FileSystemEventHandler):
                 # Add OLD path to recently_renamed to prevent double-rename
                 # (the second event comes with the old filename, not the new one)
                 self.recently_renamed.add(file_path)
-                
+
                 # Broadcast notification
-                self._broadcast_notification({
-                    "type": "file_renamed",
-                    "old_name": Path(file_path).name,
-                    "new_name": Path(new_path).name,
-                    "path": str(Path(new_path).parent),
-                    "full_path": new_path,
-                    "timestamp": time.time()
-                })
+                self._broadcast_notification(
+                    {
+                        "type": "file_renamed",
+                        "old_name": Path(file_path).name,
+                        "new_name": Path(new_path).name,
+                        "path": str(Path(new_path).parent),
+                        "full_path": new_path,
+                        "timestamp": time.time(),
+                    }
+                )
         else:
             print(f"Failed to rename file: {file_path}")
-    
+
     def _broadcast_notification(self, message: dict):
         """Broadcast notification to all WebSocket clients."""
         import asyncio
+
         try:
             # Run async broadcast in the event loop
             loop = asyncio.new_event_loop()
@@ -357,7 +363,7 @@ class FileMonitor:
     def is_active(self) -> bool:
         """Check if monitor is active."""
         return self.is_running
-    
+
     def update_config(self, new_config: AppConfig) -> None:
         """Update configuration and restart monitor if running."""
         self.config = new_config
@@ -458,10 +464,10 @@ async def update_config(request: ConfigUpdateRequest):
             config_dict["schema"].update(request.schema)
 
         setting = AppConfig(**config_dict)
-        
+
         # Load AI model names from updated settings
         load_models_from_settings(setting)
-        
+
         # Update file monitor with new config
         file_monitor.update_config(setting)
 
@@ -478,7 +484,7 @@ async def update_config(request: ConfigUpdateRequest):
 async def websocket_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for real-time notifications.
-    
+
     Clients will receive JSON messages for file events:
     - file_moved: When a file is moved to a destination folder
     - file_renamed: When a file is renamed by AI
