@@ -14,6 +14,12 @@ class BackendManager: ObservableObject {
     
     var process: Process?  // Changed from private to allow AppDelegate to check
     private let executableName = "pyile_manager"
+    private var healthCheckTask: Task<Void, Never>?
+    
+    init() {
+        // Auto-start backend immediately when app launches
+        start()
+    }
     
     // Start the backend process
     func start() {
@@ -80,10 +86,9 @@ class BackendManager: ObservableObject {
             print("Backend executable: \(executablePath)")
             print("Backend working directory: \(NSHomeDirectory())")
             
-            // Wait a moment for server to start
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                print("Backend should be ready on port 8000")
-            }
+            // Start checking for health readiness
+            startHealthCheck()
+            
         } catch {
             errorMessage = "Failed to start backend: \(error.localizedDescription)"
             print("Error: \(errorMessage ?? "")")
@@ -152,7 +157,29 @@ class BackendManager: ObservableObject {
         print("Backend stopped (PID \(pid) terminated)")
     }
     
-    // Check if backend is responsive
+    // Poll backend health until ready
+    private func startHealthCheck() {
+        healthCheckTask?.cancel()
+        healthCheckTask = Task {
+            var attempts = 0
+            while attempts < 30 { // Try for 30 seconds
+                if await checkHealth() {
+                    await MainActor.run {
+                        print("Backend is ready! Signaling components...")
+                        NotificationCenter.default.post(name: NSNotification.Name("BackendReady"), object: nil)
+                    }
+                    return
+                }
+                
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                attempts += 1
+                if attempts % 5 == 0 {
+                    print("Waiting for backend... (attempt \(attempts))")
+                }
+            }
+            print("Backend failed to become ready after 30 seconds")
+        }
+    }
     func checkHealth() async -> Bool {
         guard let url = URL(string: "http://127.0.0.1:8000/api/status") else {
             return false

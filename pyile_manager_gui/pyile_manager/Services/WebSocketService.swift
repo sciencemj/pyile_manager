@@ -8,6 +8,8 @@
 import Foundation
 import Combine
 
+import UserNotifications
+
 class WebSocketService: ObservableObject {
     @Published var lastEvent: FileEvent?
     @Published var recentEvents: [FileEvent] = []
@@ -15,6 +17,32 @@ class WebSocketService: ObservableObject {
     
     private var webSocket: URLSessionWebSocketTask?
     private let maxRecentEvents = 10
+    
+    init() {
+        // Request notification permissions
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("Notification permission granted")
+            } else if let error = error {
+                print("Notification permission error: \(error.localizedDescription)")
+            }
+        }
+        
+        // Listen for backend readiness
+        NotificationCenter.default.addObserver(self, selector: #selector(handleBackendReady), name: NSNotification.Name("BackendReady"), object: nil)
+    }
+    
+    @objc private func handleBackendReady() {
+        print("WebSocketService: Backend ready notification received, connecting...")
+        // Add a small delay to ensure server is fully accepting connections
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.connect()
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
     
     func connect() {
         guard let url = URL(string: "ws://127.0.0.1:8000/ws") else {
@@ -94,6 +122,32 @@ class WebSocketService: ObservableObject {
             }
             
             print("Received event: \(event.type) - \(event.displayText)")
+            
+            // Show notification
+            self.showNotification(for: event)
+        }
+    }
+    
+    private func showNotification(for event: FileEvent) {
+        let content = UNMutableNotificationContent()
+        content.title = "Pyile Manager"
+        content.subtitle = event.type == "file_moved" ? "File Organized" : "New File Detected"
+        content.body = event.displayText
+        content.sound = .default
+        
+        // Add icon based on event type if possible (requires Notification Service Extension for dynamic images, 
+        // but we can use standard app icon)
+        
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil // Show immediately
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Failed to show notification: \(error.localizedDescription)")
+            }
         }
     }
     

@@ -22,18 +22,6 @@ struct pyile_managerApp: App {
                 showSettingsWindow: $showSettingsWindow
             )
             .onAppear {
-                // Start backend when menu bar appears
-                if !backendManager.isRunning {
-                    backendManager.start()
-                    
-                    // Wait for backend to start, then connect WebSocket
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        if backendManager.isRunning {
-                            webSocketService.connect()
-                        }
-                    }
-                }
-                
                 // Setup quit handler via notification
                 NotificationCenter.default.addObserver(
                     forName: NSApplication.willTerminateNotification,

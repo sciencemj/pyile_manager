@@ -19,3 +19,4 @@ example_files
 build/
 dist/
 *.spec
+.DS_Store
