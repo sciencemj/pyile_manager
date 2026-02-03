@@ -1,0 +1,26 @@
+{
+    "settings": {
+        "remove_duplicate": true,
+        "rename_by_ai": true,
+        "rename_ai": "gemma3:4b",
+        "ocr_ai": "deepseek-ocr"
+    },
+    "watchlist": [
+        "/Users/example/Downloads/",
+        "/Users/example/Downloads/Google"
+    ],
+    "schema": {
+        "move": {
+            "url": {
+                "goole.com": "/Users/example/Downloads/Google",
+                "naver": "/Users/example/Downloads/Naver"
+            },
+            "tag": {
+                "school": "/Users/example/Downloads/School"
+            }
+        },
+        "rename": [
+            "/Users/example/Downloads/Google"
+        ]
+    }
+}
