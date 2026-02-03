@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 class Settings(BaseModel):
     remove_duplicate: bool = True
     rename_by_ai: bool = True
+    rename_ai: str = "gemma3:4b"
+    ocr_ai: str = "deepocr"
 
 
 class Move(BaseModel):

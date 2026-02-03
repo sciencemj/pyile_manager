@@ -8,17 +8,25 @@ from pathlib import Path
 from typing import Optional
 
 from ollama import ChatResponse, chat
-from pyile_manager_backend.file_extractor import (
+from file_extractor import (
     extract_text_from_pdf,
     extract_text_from_pptx,
     extract_text_from_txt,
     get_file_type,
 )
-from pyile_manager_backend.setting import RenameResponse
+from setting import RenameResponse, AppConfig
 
-# Model configuration
-GEMMA_MODEL = "gemma3:4b"
-OCR_MODEL = "deepocr"
+# Model configuration - will be loaded from settings
+RENAME_MODEL = "gemma3:4b"  # Default fallback
+OCR_MODEL = "deepocr"  # Default fallback
+
+
+def load_models_from_settings(config: AppConfig) -> None:
+    """Load AI model names from configuration."""
+    global RENAME_MODEL, OCR_MODEL
+    RENAME_MODEL = config.settings.rename_ai
+    OCR_MODEL = config.settings.ocr_ai
+    print(f"AI Models loaded - Rename: {RENAME_MODEL}, OCR: {OCR_MODEL}")
 
 
 def generate_rename_prompt(content: str, file_type: str) -> str:
@@ -57,7 +65,7 @@ def rename_with_text_content(content: str, file_type: str) -> RenameResponse | N
         prompt = generate_rename_prompt(content, file_type)
 
         response: ChatResponse = chat(
-            model=GEMMA_MODEL,
+            model=RENAME_MODEL,
             messages=[
                 {
                     "role": "user",
@@ -98,7 +106,7 @@ Examples:
 Generate only the filename, nothing else."""
 
         response: ChatResponse = chat(
-            model=GEMMA_MODEL,
+            model=RENAME_MODEL,
             messages=[
                 {
                     "role": "user",

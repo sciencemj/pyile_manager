@@ -141,7 +141,206 @@ The API will be available at `http://localhost:8000`
 | `/api/config` | GET | Get current configuration |
 | `/api/config` | PUT | Update configuration |
 | `/api/rename` | POST | Manually trigger AI renaming |
+| `/ws` | WebSocket | Real-time notifications for file events |
 
+## WebSocket Notifications
+
+The backend now supports real-time notifications via WebSocket for file move and rename events.
+
+### WebSocket Endpoint
+
+**URL**: `ws://localhost:8000/ws`
+
+### Connection
+
+Connect to the WebSocket endpoint to receive real-time notifications when files are moved or renamed:
+
+```swift
+import Foundation
+
+class FileNotificationService: ObservableObject {
+    private var webSocket: URLSessionWebSocketTask?
+    @Published var lastNotification: FileEvent?
+    
+    func connect() {
+        let url = URL(string: "ws://localhost:8000/ws")!
+        webSocket = URLSession.shared.webSocketTask(with: url)
+        webSocket?.resume()
+        
+        // Start receiving messages
+        receiveMessage()
+        
+        // Send periodic ping to keep connection alive
+        sendPing()
+    }
+    
+    func disconnect() {
+        webSocket?.cancel(with: .goingAway, reason: nil)
+    }
+    
+    private func receiveMessage() {
+        webSocket?.receive { [weak self] result in
+            switch result {
+            case .success(let message):
+                switch message {
+                case .string(let text):
+                    self?.handleMessage(text)
+                case .data(let data):
+                    if let text = String(data: data, encoding: .utf-8) {
+                        self?.handleMessage(text)
+                    }
+                @unknown default:
+                    break
+                }
+                // Continue receiving
+                self?.receiveMessage()
+                
+            case .failure(let error):
+                print("WebSocket error: \(error)")
+            }
+        }
+    }
+    
+    private func handleMessage(_ text: String) {
+        guard let data = text.data(using: .utf8),
+              let event = try? JSONDecoder().decode(FileEvent.self, from: data) else {
+            return
+        }
+        
+        DispatchQueue.main.async {
+            self.lastNotification = event
+        }
+    }
+    
+    private func sendPing() {
+        webSocket?.send(.string("ping")) { error in
+            if let error = error {
+                print("Ping error: \(error)")
+            }
+        }
+        
+        // Send ping every 30 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+            self?.sendPing()
+        }
+    }
+}
+
+// Event models
+struct FileEvent: Codable {
+    let type: String  // "file_moved" or "file_renamed"
+    let timestamp: Double
+    
+    // For file_moved events
+    let filename: String?
+    let from: String?
+    let to: String?
+    let destination: String?
+    
+    // For file_renamed events
+    let old_name: String?
+    let new_name: String?
+    let path: String?
+    let full_path: String?
+}
+```
+
+### Event Types
+
+#### 1. File Moved Event
+
+Sent when a file is automatically moved to a destination folder based on URL patterns.
+
+```json
+{
+    "type": "file_moved",
+    "filename": "document.pdf",
+    "from": "/Users/username/Downloads/document.pdf",
+    "to": "/Users/username/Downloads/GitHub/document.pdf",
+    "destination": "/Users/username/Downloads/GitHub",
+    "timestamp": 1738573200.123
+}
+```
+
+#### 2. File Renamed Event
+
+Sent when a file is automatically renamed using AI.
+
+```json
+{
+    "type": "file_renamed",
+    "old_name": "IMG_1234.jpg",
+    "new_name": "golden_gate_bridge_sunset.jpg",
+    "path": "/Users/username/Downloads/Photos",
+    "full_path": "/Users/username/Downloads/Photos/golden_gate_bridge_sunset.jpg",
+    "timestamp": 1738573200.456
+}
+```
+
+### SwiftUI Integration Example
+
+```swift
+import SwiftUI
+
+struct NotificationView: View {
+    @StateObject private var notificationService = FileNotificationService()
+    
+    var body: some View {
+        VStack {
+            Text("File Activity Monitor")
+                .font(.headline)
+            
+            if let event = notificationService.lastNotification {
+                VStack(alignment: .leading, spacing: 5) {
+                    if event.type == "file_moved" {
+                        Label("File Moved", systemImage: "arrow.right.square")
+                            .foregroundColor(.blue)
+                        Text(event.filename ?? "Unknown")
+                            .font(.caption)
+                        Text("→ \(event.destination ?? "Unknown")")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    } else if event.type == "file_renamed" {
+                        Label("File Renamed", systemImage: "pencil.circle")
+                            .foregroundColor(.green)
+                        Text("\(event.old_name ?? "Unknown")")
+                            .font(.caption)
+                            .strikethrough()
+                        Text("→ \(event.new_name ?? "Unknown")")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                    
+                    Text(formatTimestamp(event.timestamp))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                Text("No activity")
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .onAppear {
+            notificationService.connect()
+        }
+        .onDisappear {
+            notificationService.disconnect()
+        }
+    }
+    
+    func formatTimestamp(_ timestamp: Double) -> String {
+        let date = Date(timeIntervalSince1970: timestamp)
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+}
+
+```
 ## Configuration
 
 The executable looks for `pyile_manager_setting.json` in the current working directory. 

@@ -3,6 +3,7 @@ Pyile Manager - AI-powered intelligent file manager.
 Main entry point with FastAPI server and file monitoring.
 """
 
+import time
 import json
 import os
 import re
@@ -12,11 +13,11 @@ import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from pyile_manager_backend.ollama_api import rename_file_on_disk, rename_file_with_ai
-from pyile_manager_backend.setting import AppConfig
+from ollama_api import rename_file_on_disk, rename_file_with_ai, load_models_from_settings
+from setting import AppConfig
 from watchdog.events import DirCreatedEvent, FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -39,6 +40,51 @@ def load_setting(path: str) -> AppConfig:
 
 
 setting = load_setting("pyile_manager_setting.json")
+
+# Load AI model names from settings
+load_models_from_settings(setting)
+
+# ============================================================================
+# WebSocket Connection Manager
+# ============================================================================
+
+
+class ConnectionManager:
+    """Manage WebSocket connections for real-time notifications."""
+
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        """Accept and store a new WebSocket connection."""
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        print(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        """Remove a WebSocket connection."""
+        self.active_connections.remove(websocket)
+        print(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+
+    async def broadcast(self, message: dict):
+        """Broadcast a message to all connected clients."""
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                print(f"Error sending to websocket: {e}")
+                disconnected.append(connection)
+        
+        # Remove disconnected clients
+        for conn in disconnected:
+            if conn in self.active_connections:
+                self.active_connections.remove(conn)
+
+
+# Global WebSocket manager
+ws_manager = ConnectionManager()
+
 
 # ============================================================================
 # URL Pattern Matching with Variable Support
@@ -124,6 +170,7 @@ class NewFileHandler(FileSystemEventHandler):
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self.config = config
+        self.recently_renamed = set()  # Track recently renamed files to avoid double-rename
 
     def on_created(self, event: FileCreatedEvent | DirCreatedEvent) -> None:
         """Process newly created files."""
@@ -138,22 +185,29 @@ class NewFileHandler(FileSystemEventHandler):
             return
 
         # Wait a moment for file to be fully written
-        import time
-
         time.sleep(0.5)
 
         # Try to get source URL from metadata
         source_url = get_metadata_mdls(src_path)
+        
+        # Track the current file path (it may change after moving)
+        current_path = src_path
 
         if source_url:
-            self._sort_file_by_url(src_path, filename, source_url)
+            new_path = self._sort_file_by_url(src_path, filename, source_url)
+            if new_path:
+                current_path = new_path  # Update path after moving
+                time.sleep(0.5)  # Wait for file system to settle after move
 
-        # Check if file is in a rename directory
-        if self._should_rename_file(src_path):
-            self._rename_file_with_ai(src_path)
+        # Check if file is in a rename directory (use current path, not original)
+        if self._should_rename_file(current_path):
+            self._rename_file_with_ai(current_path)
 
-    def _sort_file_by_url(self, src_path: str, filename: str, source_url: str) -> None:
-        """Sort file into appropriate directory based on source URL."""
+    def _sort_file_by_url(self, src_path: str, filename: str, source_url: str) -> str | None:
+        """
+        Sort file into appropriate directory based on source URL.
+        Returns the new file path if moved, None otherwise.
+        """
         # Match URL to destination
         destination = match_url_to_destination(source_url, self.config.schema.move.url)
 
@@ -178,21 +232,51 @@ class NewFileHandler(FileSystemEventHandler):
                 if self.config.settings.remove_duplicate:
                     os.remove(src_path)
                     print(f"Duplicate file removed: {filename}")
-                return
+                return None
 
             # Move file
             shutil.move(src_path, str(dest_path))
             print(f"File moved: {filename} -> {destination}")
+            
+            # Broadcast notification
+            self._broadcast_notification({
+                "type": "file_moved",
+                "filename": filename,
+                "from": src_path,
+                "to": str(dest_path),
+                "destination": destination,
+                "timestamp": time.time()
+            })
+            
+            # Return the new path
+            return str(dest_path)
+        
+        return None
 
     def _should_rename_file(self, file_path: str) -> bool:
         """Check if file should be renamed based on configuration."""
+        
+        # Skip if this file was just renamed (prevents double-rename)
+        if file_path in self.recently_renamed:
+            print(f"Skipping recently renamed file: {Path(file_path).name}")
+            self.recently_renamed.discard(file_path)
+            return False
+        
         if not self.config.settings.rename_by_ai:
+            print(f"AI rename disabled in settings for: {file_path}")
             return False
 
         file_dir = str(Path(file_path).parent)
+        print(f"Checking rename for file: {file_path}")
+        print(f"  File directory: {file_dir}")
+        print(f"  Rename directories in config: {self.config.schema.rename}")
+        
         for rename_dir in self.config.schema.rename:
             if file_dir.startswith(rename_dir):
+                print(f"  ✓ Match found with: {rename_dir}")
                 return True
+        
+        print(f"  ✗ No match found")
         return False
 
     def _rename_file_with_ai(self, file_path: str) -> None:
@@ -201,9 +285,34 @@ class NewFileHandler(FileSystemEventHandler):
         new_name = rename_file_with_ai(file_path)
 
         if new_name:
-            rename_file_on_disk(file_path, new_name)
+            new_path = rename_file_on_disk(file_path, new_name)
+            if new_path:
+                # Add OLD path to recently_renamed to prevent double-rename
+                # (the second event comes with the old filename, not the new one)
+                self.recently_renamed.add(file_path)
+                
+                # Broadcast notification
+                self._broadcast_notification({
+                    "type": "file_renamed",
+                    "old_name": Path(file_path).name,
+                    "new_name": Path(new_path).name,
+                    "path": str(Path(new_path).parent),
+                    "full_path": new_path,
+                    "timestamp": time.time()
+                })
         else:
             print(f"Failed to rename file: {file_path}")
+    
+    def _broadcast_notification(self, message: dict):
+        """Broadcast notification to all WebSocket clients."""
+        import asyncio
+        try:
+            # Run async broadcast in the event loop
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(ws_manager.broadcast(message))
+            loop.close()
+        except Exception as e:
+            print(f"Error broadcasting notification: {e}")
 
 
 # ============================================================================
@@ -248,6 +357,14 @@ class FileMonitor:
     def is_active(self) -> bool:
         """Check if monitor is active."""
         return self.is_running
+    
+    def update_config(self, new_config: AppConfig) -> None:
+        """Update configuration and restart monitor if running."""
+        self.config = new_config
+        if self.is_running:
+            print("Restarting monitor with new configuration...")
+            self.stop()
+            self.start()
 
 
 # Global monitor instance
@@ -341,14 +458,44 @@ async def update_config(request: ConfigUpdateRequest):
             config_dict["schema"].update(request.schema)
 
         setting = AppConfig(**config_dict)
+        
+        # Load AI model names from updated settings
+        load_models_from_settings(setting)
+        
+        # Update file monitor with new config
+        file_monitor.update_config(setting)
 
         # Save to file
         with open("pyile_manager_setting.json", "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=4)
 
-        return {"success": True, "message": "Configuration updated"}
+        return {"success": True, "message": "Configuration updated and applied"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time notifications.
+    
+    Clients will receive JSON messages for file events:
+    - file_moved: When a file is moved to a destination folder
+    - file_renamed: When a file is renamed by AI
+    """
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive and wait for messages (ping/pong)
+            data = await websocket.receive_text()
+            # Echo back for ping/pong
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        ws_manager.disconnect(websocket)
 
 
 @app.post("/api/rename", response_model=RenameResponse)
