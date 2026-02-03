@@ -10,3 +10,10 @@ wheels/
 .venv
 .vscode
 pyile_manager_setting.json
+PROJECT_OVERVIEW.md
+example_files
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
