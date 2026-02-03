@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		CC0C1E142F30C260005C958B /* pyile_manager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pyile_manager.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC0C1E142F30C260005C958B /* Pyile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pyile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		CC0C1E152F30C260005C958B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				CC0C1E142F30C260005C958B /* pyile_manager.app */,
+				CC0C1E142F30C260005C958B /* Pyile.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -67,7 +67,7 @@
 			packageProductDependencies = (
 			);
 			productName = pyile_manager;
-			productReference = CC0C1E142F30C260005C958B /* pyile_manager.app */;
+			productReference = CC0C1E142F30C260005C958B /* Pyile.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -267,7 +267,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.sciencemj.pyile-manager";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Pyile;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -301,7 +301,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.sciencemj.pyile-manager";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Pyile;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

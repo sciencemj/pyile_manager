@@ -131,7 +131,7 @@ class WebSocketService: ObservableObject {
     private func showNotification(for event: FileEvent) {
         let content = UNMutableNotificationContent()
         content.title = "Pyile Manager"
-        content.subtitle = event.type == "file_moved" ? "File Organized" : "New File Detected"
+        content.subtitle = event.type == "file_moved" ? "File Organized" : "File Renamed"
         content.body = event.displayText
         content.sound = .default
         

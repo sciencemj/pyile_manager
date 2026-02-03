@@ -180,23 +180,68 @@ struct SettingsWindow: View {
                     .font(.title3)
                     .fontWeight(.semibold)
                 
-                PickerSettingRow(
-                    "Rename AI Model",
-                    description: "Model used for file renaming",
-                    selection: config.settings.renameAi,
-                    options: aiModels
-                )
+                // Rename AI Model
+                VStack(alignment: .leading) {
+                    PickerSettingRow(
+                        "Rename AI Model",
+                        description: "Model used for file renaming",
+                        selection: Binding(
+                            get: { self.isCustomModel(config.wrappedValue.settings.renameAi) ? "Custom" : config.wrappedValue.settings.renameAi },
+                            set: { newValue in
+                                if newValue == "Custom" {
+                                    // If switching to Custom, verify if current is already custom. If not, clear it to force "Custom" state.
+                                    if !self.isCustomModel(config.wrappedValue.settings.renameAi) {
+                                        config.wrappedValue.settings.renameAi = "" 
+                                    }
+                                } else {
+                                    config.wrappedValue.settings.renameAi = newValue
+                                }
+                            }
+                        ),
+                        options: aiModels + ["Custom"]
+                    )
+                    
+                    if self.isCustomModel(config.wrappedValue.settings.renameAi) {
+                        TextField("Enter custom model name (e.g. gemma2:9b)", text: config.settings.renameAi)
+                            .textFieldStyle(.roundedBorder)
+                            .padding(.leading, 20)
+                    }
+                }
                 
                 Divider()
                 
-                PickerSettingRow(
-                    "OCR AI Model",
-                    description: "Model used for optical character recognition",
-                    selection: config.settings.ocrAi,
-                    options: aiModels
-                )
+                // OCR AI Model
+                VStack(alignment: .leading) {
+                    PickerSettingRow(
+                        "OCR AI Model",
+                        description: "Model used for optical character recognition",
+                        selection: Binding(
+                            get: { self.isCustomModel(config.wrappedValue.settings.ocrAi) ? "Custom" : config.wrappedValue.settings.ocrAi },
+                            set: { newValue in
+                                if newValue == "Custom" {
+                                    if !self.isCustomModel(config.wrappedValue.settings.ocrAi) {
+                                        config.wrappedValue.settings.ocrAi = ""
+                                    }
+                                } else {
+                                    config.wrappedValue.settings.ocrAi = newValue
+                                }
+                            }
+                        ),
+                        options: aiModels + ["Custom"]
+                    )
+                    
+                    if self.isCustomModel(config.wrappedValue.settings.ocrAi) {
+                        TextField("Enter custom model name", text: config.settings.ocrAi)
+                            .textFieldStyle(.roundedBorder)
+                            .padding(.leading, 20)
+                    }
+                }
             }
         }
+    }
+    
+    private func isCustomModel(_ model: String) -> Bool {
+        return !aiModels.contains(model)
     }
     
     // MARK: - Watchlist
