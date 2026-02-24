@@ -27,8 +27,10 @@ from setting import AppConfig
 # ============================================================================
 
 
-def load_setting(path: str) -> AppConfig:
+def load_setting(path_str: str) -> AppConfig:
     """Load configuration from JSON file."""
+    path = Path(path_str).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(path, "r", encoding="utf-8") as file:
             data: dict = json.load(file)
@@ -40,7 +42,7 @@ def load_setting(path: str) -> AppConfig:
         return AppConfig()
 
 
-setting = load_setting("pyile_manager_setting.json")
+setting = load_setting("~/.config/pyile_manager/pyile_manager_setting.json")
 
 # Load AI model names from settings
 load_models_from_settings(setting)
@@ -472,7 +474,10 @@ async def update_config(request: ConfigUpdateRequest):
         file_monitor.update_config(setting)
 
         # Save to file
-        with open("pyile_manager_setting.json", "w", encoding="utf-8") as f:
+        path = Path("~/.config/pyile_manager/pyile_manager_setting.json").expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=4)
 
         return {"success": True, "message": "Configuration updated and applied"}
