@@ -3,11 +3,9 @@ File content extraction utilities for different file types.
 Supports PDF, images, PowerPoint, and text files.
 """
 
-import base64
 from pathlib import Path
 
 import pdfplumber
-from PIL import Image
 from pptx import Presentation
 
 

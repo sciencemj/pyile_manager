@@ -5,7 +5,6 @@ Supports images, PDFs, PowerPoint, and text files.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from ollama import ChatResponse, chat
 from file_extractor import (

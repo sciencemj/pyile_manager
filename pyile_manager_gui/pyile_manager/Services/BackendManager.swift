@@ -68,12 +68,12 @@ class BackendManager: ObservableObject {
         }
         
         // Monitor process termination
-        process?.terminationHandler = { process in
+        process?.terminationHandler = { [weak self] process in
             print("Backend process terminated with status: \(process.terminationStatus)")
             DispatchQueue.main.async {
-                self.isRunning = false
+                self?.isRunning = false
                 if process.terminationStatus != 0 {
-                    self.errorMessage = "Backend exited with code \(process.terminationStatus)"
+                    self?.errorMessage = "Backend exited with code \(process.terminationStatus)"
                 }
             }
         }

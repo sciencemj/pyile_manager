@@ -3,6 +3,7 @@ Pyile Manager - AI-powered intelligent file manager.
 Main entry point with FastAPI server and file monitoring.
 """
 
+import asyncio
 import json
 import os
 import re
@@ -105,7 +106,7 @@ def parse_url_pattern(pattern: str) -> re.Pattern:
     escaped = re.escape(pattern)
     # Replace escaped {$var} patterns with regex wildcard
     regex_pattern = escaped.replace(r"\{\$var\}", r"[^/]+")
-    regex_pattern = escaped.replace(r"\{\$\*\}", r".*")
+    regex_pattern = regex_pattern.replace(r"\{\$\*\}", r".*")
     return re.compile(regex_pattern)
 
 
@@ -312,13 +313,12 @@ class NewFileHandler(FileSystemEventHandler):
 
     def _broadcast_notification(self, message: dict):
         """Broadcast notification to all WebSocket clients."""
-        import asyncio
-
         try:
-            # Run async broadcast in the event loop
-            loop = asyncio.new_event_loop()
-            loop.run_until_complete(ws_manager.broadcast(message))
-            loop.close()
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.run_coroutine_threadsafe(ws_manager.broadcast(message), loop)
+            else:
+                loop.run_until_complete(ws_manager.broadcast(message))
         except Exception as e:
             print(f"Error broadcasting notification: {e}")
 
@@ -547,8 +547,6 @@ def run_monitor_in_background():
     file_monitor.start()
     try:
         while file_monitor.is_active():
-            import time
-
             time.sleep(1)
     except KeyboardInterrupt:
         file_monitor.stop()
