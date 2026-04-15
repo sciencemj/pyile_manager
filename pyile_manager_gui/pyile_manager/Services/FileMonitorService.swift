@@ -19,6 +19,7 @@ class FileMonitorService: ObservableObject {
     private let ollamaService: OllamaService
     private var eventStream: FSEventStreamRef?
     private var recentlyRenamed: Set<String> = []
+    private var recentlyMoved: Set<String> = []
     private let maxRecentEvents = 10
 
     private static let tempExtensions: Set<String> = ["crdownload", "tmp", "part"]
@@ -121,8 +122,16 @@ class FileMonitorService: ObservableObject {
                 // Verify file actually exists (renamed events fire for both old and new paths)
                 guard FileManager.default.fileExists(atPath: path) else { continue }
 
+                let fileURL = URL(fileURLWithPath: path)
+                let parentDir = fileURL.deletingLastPathComponent().path
+
+                // Only process files directly in watched directories (not subdirectories)
+                // This matches Python watchdog's recursive=False behavior
+                let watchlist = monitor.configManager.config.watchlist
+                guard watchlist.contains(parentDir) else { continue }
+
                 Task { @MainActor in
-                    await monitor.handleNewFile(at: URL(fileURLWithPath: path))
+                    await monitor.handleNewFile(at: fileURL)
                 }
             }
         }
@@ -139,6 +148,12 @@ class FileMonitorService: ObservableObject {
 
         // Skip hidden files
         if filename.hasPrefix(".") { return }
+
+        // Skip files we just moved here (prevents re-processing at destination)
+        if recentlyMoved.contains(fileURL.path) {
+            recentlyMoved.remove(fileURL.path)
+            return
+        }
 
         // Wait for file to be fully written
         try? await Task.sleep(for: .milliseconds(500))
@@ -181,6 +196,9 @@ class FileMonitorService: ObservableObject {
 
         switch result {
         case .moved(let newURL):
+            // Track to prevent re-processing at destination
+            recentlyMoved.insert(newURL.path)
+
             let event = FileEvent(
                 type: "file_moved",
                 timestamp: Date().timeIntervalSince1970,
