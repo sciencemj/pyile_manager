@@ -10,23 +10,9 @@
 		CC0C1E142F30C260005C958B /* Pyile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pyile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		CC0B3F432F6A61F4007599FA /* Exceptions for "pyile_manager" folder in "pyile_manager" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Resources/pyile_manager 2026-02-24 23-45-11/Pyile_old.app",
-				Resources/pyile_manager_old/Pyile_old.app,
-			);
-			target = CC0C1E132F30C260005C958B /* pyile_manager */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CC0C1E162F30C260005C958B /* pyile_manager */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				CC0B3F432F6A61F4007599FA /* Exceptions for "pyile_manager" folder in "pyile_manager" target */,
-			);
 			path = pyile_manager;
 			sourceTree = "<group>";
 		};

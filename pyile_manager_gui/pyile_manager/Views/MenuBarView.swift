@@ -8,14 +8,12 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    @ObservedObject var backendManager: BackendManager
-    @ObservedObject var webSocketService: WebSocketService
+    @ObservedObject var configManager: ConfigManager
+    @ObservedObject var fileMonitor: FileMonitorService
     @Binding var showSettingsWindow: Bool
-    
-    @State private var isMonitoring = false
+
     @Environment(\.openWindow) private var openWindow
-    private let apiClient = APIClient()
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -27,43 +25,34 @@ struct MenuBarView: View {
                     Text("Pyile Manager")
                         .font(.headline)
                 }
-                
-                // Status Indicators
+
+                // Status Indicator
                 HStack(spacing: 16) {
                     StatusIndicator(
-                        label: "Backend",
-                        isActive: backendManager.isRunning,
-                        activeColor: .green,
-                        inactiveColor: .red
+                        label: "Monitoring",
+                        isActive: fileMonitor.isMonitoring,
+                        activeColor: .blue,
+                        inactiveColor: .orange
                     )
-                    
-                    if backendManager.isRunning {
-                        StatusIndicator(
-                            label: "Monitoring",
-                            isActive: isMonitoring,
-                            activeColor: .blue,
-                            inactiveColor: .orange
-                        )
-                    }
                 }
                 .font(.caption)
             }
             .padding()
-            
+
             Divider()
-            
+
             // Recent Activity
-            if !webSocketService.recentEvents.isEmpty {
+            if !fileMonitor.recentEvents.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Recent Activity")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
                         .padding(.top, 8)
-                    
+
                     ScrollView {
                         VStack(spacing: 4) {
-                            ForEach(Array(webSocketService.recentEvents.prefix(5))) { event in
+                            ForEach(Array(fileMonitor.recentEvents.prefix(5))) { event in
                                 EventRow(event: event)
                             }
                         }
@@ -71,10 +60,10 @@ struct MenuBarView: View {
                     .frame(maxHeight: 150)
                     .padding(.horizontal, 8)
                 }
-                
+
                 Divider()
             }
-            
+
             // Actions
             VStack(spacing: 4) {
                 Button(action: openSettingsWindow) {
@@ -84,22 +73,20 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                
-                if backendManager.isRunning {
-                    Button(action: toggleMonitoring) {
-                        Label(
-                            isMonitoring ? "Stop Monitoring" : "Start Monitoring",
-                            systemImage: isMonitoring ? "pause.circle" : "play.circle"
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+
+                Button(action: toggleMonitoring) {
+                    Label(
+                        fileMonitor.isMonitoring ? "Stop Monitoring" : "Start Monitoring",
+                        systemImage: fileMonitor.isMonitoring ? "pause.circle" : "play.circle"
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+
                 Divider()
-                
+
                 Button(action: { NSApplication.shared.terminate(nil) }) {
                     Label("Quit", systemImage: "power")
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,46 +98,16 @@ struct MenuBarView: View {
             .padding(.vertical, 8)
         }
         .frame(width: 280)
-        .onAppear {
-            checkMonitoringStatus()
-        }
     }
-    
-    private func checkMonitoringStatus() {
-        guard backendManager.isRunning else { return }
-        
-        Task {
-            do {
-                let status = try await apiClient.getStatus()
-                await MainActor.run {
-                    isMonitoring = status.monitoring
-                }
-            } catch {
-                print("Failed to get status: \(error)")
-            }
-        }
-    }
-    
+
     private func toggleMonitoring() {
-        Task {
-            do {
-                if isMonitoring {
-                    try await apiClient.stopMonitoring()
-                } else {
-                    try await apiClient.startMonitoring()
-                }
-                
-                // Update status
-                let status = try await apiClient.getStatus()
-                await MainActor.run {
-                    isMonitoring = status.monitoring
-                }
-            } catch {
-                print("Failed to toggle monitoring: \(error)")
-            }
+        if fileMonitor.isMonitoring {
+            fileMonitor.stop()
+        } else {
+            fileMonitor.start()
         }
     }
-    
+
     private func openSettingsWindow() {
         openWindow(id: "settings")
         NSApp.activate(ignoringOtherApps: true)
@@ -163,7 +120,7 @@ struct StatusIndicator: View {
     let isActive: Bool
     let activeColor: Color
     let inactiveColor: Color
-    
+
     var body: some View {
         HStack(spacing: 4) {
             Circle()
@@ -178,14 +135,14 @@ struct StatusIndicator: View {
 
 struct EventRow: View {
     let event: FileEvent
-    
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: event.displayIcon)
                 .foregroundStyle(event.type == "file_moved" ? .blue : .green)
                 .font(.caption)
                 .frame(width: 16)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.displayText)
                     .font(.caption)
@@ -194,7 +151,7 @@ struct EventRow: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            
+
             Spacer()
         }
         .padding(.horizontal, 8)
@@ -202,11 +159,11 @@ struct EventRow: View {
         .background(Color.secondary.opacity(0.05))
         .cornerRadius(6)
     }
-    
+
     private func timeAgo(from timestamp: Double) -> String {
         let date = Date(timeIntervalSince1970: timestamp)
         let seconds = Date().timeIntervalSince(date)
-        
+
         if seconds < 60 {
             return "Just now"
         } else if seconds < 3600 {
@@ -220,12 +177,4 @@ struct EventRow: View {
             return "\(days)d ago"
         }
     }
-}
-
-#Preview {
-    MenuBarView(
-        backendManager: BackendManager(),
-        webSocketService: WebSocketService(),
-        showSettingsWindow: .constant(false)
-    )
 }

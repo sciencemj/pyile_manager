@@ -2,7 +2,7 @@
 //  AppConfig.swift
 //  pyile_manager
 //
-//  Data models matching backend JSON structure
+//  Data models for application configuration
 //
 
 import Foundation
@@ -13,7 +13,7 @@ struct Settings: Codable {
     var renameByAi: Bool
     var renameAi: String
     var ocrAi: String
-    
+
     enum CodingKeys: String, CodingKey {
         case removeDuplicate = "remove_duplicate"
         case renameByAi = "rename_by_ai"
@@ -39,18 +39,20 @@ struct AppConfig: Codable {
     var settings: Settings
     var watchlist: [String]
     var schema: Schema
-}
 
-// API Status response
-struct StatusResponse: Codable {
-    let status: String
-    let monitoring: Bool
-    let watchlist: [String]
-}
-
-// API Response wrapper
-struct APIResponse<T: Codable>: Codable {
-    let success: Bool
-    let data: T?
-    let error: String?
+    static var `default`: AppConfig {
+        AppConfig(
+            settings: Settings(
+                removeDuplicate: true,
+                renameByAi: true,
+                renameAi: "gemma3:4b",
+                ocrAi: "deepocr"
+            ),
+            watchlist: [],
+            schema: Schema(
+                move: Move(url: [:], tag: [:]),
+                rename: []
+            )
+        )
+    }
 }

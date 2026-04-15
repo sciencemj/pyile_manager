@@ -8,67 +8,64 @@
 import SwiftUI
 
 struct SettingsWindow: View {
-    private let apiClient = APIClient()
-    @ObservedObject var backendManager: BackendManager
-    @ObservedObject var webSocketService: WebSocketService
-    
+    @ObservedObject var configManager: ConfigManager
+    @ObservedObject var fileMonitor: FileMonitorService
+
     @State private var config: AppConfig?
-    @State private var isLoading = false
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
-    @State private var isMonitoring = false
-    
+
     // Available AI models
     private let aiModels = ["gemma3:4b", "llama2", "mistral", "deepocr", "phi"]
-    
+
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // Header
                 headerSection
-                
+
                 // Status Section
                 statusSection
-                
+
                 // Settings Sections
                 if let config = config {
                     generalSettingsSection(config: Binding(
                         get: { config },
                         set: { self.config = $0 }
                     ))
-                    
+
                     aiModelsSection(config: Binding(
                         get: { config },
                         set: { self.config = $0 }
                     ))
-                    
+
                     watchlistSection(config: Binding(
                         get: { config },
                         set: { self.config = $0 }
                     ))
-                    
+
                     urlMappingsSection(config: Binding(
                         get: { config },
                         set: { self.config = $0 }
                     ))
-                    
+
                     tagMappingsSection(config: Binding(
                         get: { config },
                         set: { self.config = $0 }
                     ))
-                    
+
                     renameFoldersSection(config: Binding(
                         get: { config },
                         set: { self.config = $0 }
                     ))
-                    
+
                     // Save Button
                     saveButtonSection
                 }
-                
+
                 // Messages
                 if let errorMessage = errorMessage {
                     messageView(errorMessage, isError: true)
@@ -85,7 +82,7 @@ struct SettingsWindow: View {
             loadConfig()
         }
     }
-    
+
     // MARK: - Header
     private var headerSection: some View {
         VStack(spacing: 8) {
@@ -104,49 +101,29 @@ struct SettingsWindow: View {
         .frame(maxWidth: .infinity)
         .padding(.bottom, 10)
     }
-    
+
     // MARK: - Status Section
     private var statusSection: some View {
         GlassCard {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Backend Status")
+                    Text("Monitoring")
                         .font(.headline)
-                    Text(backendManager.isRunning ? "Running on port 8000" : "Stopped")
+                    Text(fileMonitor.isMonitoring ? "Active" : "Inactive")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 Circle()
-                    .fill(backendManager.isRunning ? Color.green : Color.red)
+                    .fill(fileMonitor.isMonitoring ? Color.blue : Color.orange)
                     .frame(width: 12, height: 12)
-                    .shadow(color: backendManager.isRunning ? .green : .red, radius: 4)
-                
-                if backendManager.isRunning {
-                    Divider()
-                        .frame(height: 30)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Monitoring")
-                            .font(.headline)
-                        Text(isMonitoring ? "Active" : "Inactive")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Circle()
-                        .fill(isMonitoring ? Color.blue : Color.orange)
-                        .frame(width: 12, height: 12)
-                        .shadow(color: isMonitoring ? .blue : .orange, radius: 4)
-                }
+                    .shadow(color: fileMonitor.isMonitoring ? .blue : .orange, radius: 4)
             }
         }
     }
-    
+
     // MARK: - General Settings
     private func generalSettingsSection(config: Binding<AppConfig>) -> some View {
         GlassCard {
@@ -154,15 +131,15 @@ struct SettingsWindow: View {
                 Text("General Settings")
                     .font(.title3)
                     .fontWeight(.semibold)
-                
+
                 ToggleSettingRow(
                     "Remove Duplicates",
                     description: "Automatically remove duplicate files",
                     isOn: config.settings.removeDuplicate
                 )
-                
+
                 Divider()
-                
+
                 ToggleSettingRow(
                     "AI Renaming",
                     description: "Enable intelligent file renaming using AI",
@@ -171,7 +148,7 @@ struct SettingsWindow: View {
             }
         }
     }
-    
+
     // MARK: - AI Models
     private func aiModelsSection(config: Binding<AppConfig>) -> some View {
         GlassCard {
@@ -179,7 +156,7 @@ struct SettingsWindow: View {
                 Text("AI Models")
                     .font(.title3)
                     .fontWeight(.semibold)
-                
+
                 // Rename AI Model
                 VStack(alignment: .leading) {
                     PickerSettingRow(
@@ -189,9 +166,8 @@ struct SettingsWindow: View {
                             get: { self.isCustomModel(config.wrappedValue.settings.renameAi) ? "Custom" : config.wrappedValue.settings.renameAi },
                             set: { newValue in
                                 if newValue == "Custom" {
-                                    // If switching to Custom, verify if current is already custom. If not, clear it to force "Custom" state.
                                     if !self.isCustomModel(config.wrappedValue.settings.renameAi) {
-                                        config.wrappedValue.settings.renameAi = "" 
+                                        config.wrappedValue.settings.renameAi = ""
                                     }
                                 } else {
                                     config.wrappedValue.settings.renameAi = newValue
@@ -200,16 +176,16 @@ struct SettingsWindow: View {
                         ),
                         options: aiModels + ["Custom"]
                     )
-                    
+
                     if self.isCustomModel(config.wrappedValue.settings.renameAi) {
                         TextField("Enter custom model name (e.g. gemma2:9b)", text: config.settings.renameAi)
                             .textFieldStyle(.roundedBorder)
                             .padding(.leading, 20)
                     }
                 }
-                
+
                 Divider()
-                
+
                 // OCR AI Model
                 VStack(alignment: .leading) {
                     PickerSettingRow(
@@ -229,7 +205,7 @@ struct SettingsWindow: View {
                         ),
                         options: aiModels + ["Custom"]
                     )
-                    
+
                     if self.isCustomModel(config.wrappedValue.settings.ocrAi) {
                         TextField("Enter custom model name", text: config.settings.ocrAi)
                             .textFieldStyle(.roundedBorder)
@@ -239,39 +215,39 @@ struct SettingsWindow: View {
             }
         }
     }
-    
+
     private func isCustomModel(_ model: String) -> Bool {
         return !aiModels.contains(model)
     }
-    
+
     // MARK: - Watchlist
     private func watchlistSection(config: Binding<AppConfig>) -> some View {
         GlassCard {
             WatchlistEditor(folders: config.watchlist)
         }
     }
-    
+
     // MARK: - URL Mappings
     private func urlMappingsSection(config: Binding<AppConfig>) -> some View {
         GlassCard {
             URLMappingEditor(mappings: config.schema.move.url)
         }
     }
-    
+
     // MARK: - Tag Mappings
     private func tagMappingsSection(config: Binding<AppConfig>) -> some View {
         GlassCard {
             TagMappingEditor(mappings: config.schema.move.tag)
         }
     }
-    
+
     // MARK: - Rename Folders
     private func renameFoldersSection(config: Binding<AppConfig>) -> some View {
         GlassCard {
             RenameFoldersEditor(folders: config.schema.rename)
         }
     }
-    
+
     // MARK: - Save Button
     private var saveButtonSection: some View {
         HStack(spacing: 12) {
@@ -280,8 +256,8 @@ struct SettingsWindow: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
-            .disabled(isLoading || isSaving)
-            
+            .disabled(isSaving)
+
             Button(action: saveConfig) {
                 if isSaving {
                     ProgressView()
@@ -293,11 +269,11 @@ struct SettingsWindow: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(isLoading || isSaving || config == nil)
+            .disabled(isSaving || config == nil)
         }
         .padding(.top, 10)
     }
-    
+
     // MARK: - Message View
     private func messageView(_ message: String, isError: Bool) -> some View {
         HStack {
@@ -315,58 +291,32 @@ struct SettingsWindow: View {
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: errorMessage)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: successMessage)
     }
-    
+
     // MARK: - Actions
     private func loadConfig() {
-        isLoading = true
         errorMessage = nil
         successMessage = nil
-        
-        Task {
-            do {
-                let loadedConfig = try await apiClient.getConfig()
-                let status = try await apiClient.getStatus()
-                
-                await MainActor.run {
-                    self.config = loadedConfig
-                    self.isMonitoring = status.monitoring
-                    self.isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.errorMessage = "Failed to load config: \(error.localizedDescription)"
-                    self.isLoading = false
-                }
-            }
-        }
+        configManager.load()
+        config = configManager.config
     }
-    
+
     private func saveConfig() {
         guard let config = config else { return }
-        
+
         isSaving = true
         errorMessage = nil
         successMessage = nil
-        
-        Task {
-            do {
-                try await apiClient.updateConfig(config)
-                
-                await MainActor.run {
-                    self.successMessage = "Settings saved successfully!"
-                    self.isSaving = false
-                    
-                    // Clear success message after 3 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        self.successMessage = nil
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    self.errorMessage = "Failed to save config: \(error.localizedDescription)"
-                    self.isSaving = false
-                }
-            }
+
+        configManager.config = config
+        configManager.save()
+        fileMonitor.updateConfig()
+
+        successMessage = "Settings saved successfully!"
+        isSaving = false
+
+        // Clear success message after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            self.successMessage = nil
         }
     }
 }
@@ -377,7 +327,7 @@ struct TagMappingEditor: View {
     @State private var newTag = ""
     @State private var newDestination = ""
     @State private var showingAddDialog = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -390,7 +340,7 @@ struct TagMappingEditor: View {
                 }
                 .buttonStyle(.borderless)
             }
-            
+
             if mappings.isEmpty {
                 Text("No tag mappings configured")
                     .font(.caption)
@@ -463,18 +413,18 @@ struct AddTagMappingDialog: View {
     @Binding var destination: String
     let onSave: () -> Void
     let onCancel: () -> Void
-    
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Add Tag Mapping")
                 .font(.headline)
-            
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Tag Name")
                     .font(.caption)
                 TextField("e.g., school, work, personal", text: $tag)
                     .textFieldStyle(.roundedBorder)
-                
+
                 Text("Destination Folder")
                     .font(.caption)
                 HStack {
@@ -485,7 +435,7 @@ struct AddTagMappingDialog: View {
                         panel.canChooseFiles = false
                         panel.canChooseDirectories = true
                         panel.allowsMultipleSelection = false
-                        
+
                         panel.begin { response in
                             if response == .OK, let url = panel.url {
                                 destination = url.path
@@ -494,7 +444,7 @@ struct AddTagMappingDialog: View {
                     }
                 }
             }
-            
+
             HStack {
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -514,7 +464,7 @@ struct RenameFoldersEditor: View {
     @Binding var folders: [String]
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -527,11 +477,11 @@ struct RenameFoldersEditor: View {
                 }
                 .buttonStyle(.borderless)
             }
-            
+
             Text("Files in these folders will be automatically renamed using AI")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            
+
             if folders.isEmpty {
                 Text("No folders configured for AI renaming")
                     .font(.caption)
@@ -569,14 +519,14 @@ struct RenameFoldersEditor: View {
             Text(alertMessage)
         }
     }
-    
+
     private func addFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.message = "Select a folder for AI renaming"
-        
+
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 let path = url.path
@@ -589,15 +539,8 @@ struct RenameFoldersEditor: View {
             }
         }
     }
-    
+
     private func removeFolder(_ folder: String) {
         folders.removeAll { $0 == folder }
     }
-}
-
-#Preview {
-    SettingsWindow(
-        backendManager: BackendManager(),
-        webSocketService: WebSocketService()
-    )
 }

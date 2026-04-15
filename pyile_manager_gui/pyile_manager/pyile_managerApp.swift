@@ -6,39 +6,55 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 @main
 struct pyile_managerApp: App {
-    @StateObject private var backendManager = BackendManager()
-    @StateObject private var webSocketService = WebSocketService()
+    @StateObject private var configManager = ConfigManager()
+    @StateObject private var fileMonitor: FileMonitorService
+
     @State private var showSettingsWindow = false
-    
+
+    init() {
+        let cm = ConfigManager()
+        _configManager = StateObject(wrappedValue: cm)
+        _fileMonitor = StateObject(wrappedValue: FileMonitorService(configManager: cm))
+
+        // Request notification permissions
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("Notification permission granted")
+            } else if let error {
+                print("Notification permission error: \(error.localizedDescription)")
+            }
+        }
+    }
+
     var body: some Scene {
         // Menu Bar Extra (runs in background)
         MenuBarExtra("Pyile Manager", systemImage: "folder.fill.badge.gearshape") {
             MenuBarView(
-                backendManager: backendManager,
-                webSocketService: webSocketService,
+                configManager: configManager,
+                fileMonitor: fileMonitor,
                 showSettingsWindow: $showSettingsWindow
             )
             .onAppear {
-                // Setup quit handler via notification
                 NotificationCenter.default.addObserver(
                     forName: NSApplication.willTerminateNotification,
                     object: nil,
                     queue: .main
                 ) { _ in
-                    self.handleQuit()
+                    handleQuit()
                 }
             }
         }
         .menuBarExtraStyle(.window)
-        
+
         // Settings Window (shown on demand)
         Window("Settings", id: "settings") {
             SettingsWindow(
-                backendManager: backendManager,
-                webSocketService: webSocketService
+                configManager: configManager,
+                fileMonitor: fileMonitor
             )
         }
         .windowResizability(.contentSize)
@@ -49,12 +65,10 @@ struct pyile_managerApp: App {
                 Button("Open Settings") {
                     showSettingsWindow = true
                     NSApp.activate(ignoringOtherApps: true)
-                    
-                    // Open settings window
+
                     if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "settings" }) {
                         window.makeKeyAndOrderFront(nil)
                     } else {
-                        // Create new window if doesn't exist
                         let settingsWindow = NSWindow(
                             contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
                             styleMask: [.titled, .closable, .miniaturizable],
@@ -65,8 +79,8 @@ struct pyile_managerApp: App {
                         settingsWindow.center()
                         settingsWindow.contentView = NSHostingView(
                             rootView: SettingsWindow(
-                                backendManager: backendManager,
-                                webSocketService: webSocketService
+                                configManager: configManager,
+                                fileMonitor: fileMonitor
                             )
                         )
                         settingsWindow.makeKeyAndOrderFront(nil)
@@ -76,59 +90,10 @@ struct pyile_managerApp: App {
             }
         }
     }
-    
+
     private func handleQuit() {
         print("=== QUIT HANDLER CALLED ===")
-        
-        // Get process info before stopping
-        let pid = backendManager.process?.processIdentifier ?? 0
-        print("Backend PID: \(pid)")
-        print("Backend isRunning: \(backendManager.isRunning)")
-        
-        // Disconnect WebSocket
-        webSocketService.disconnect()
-        
-        // Kill backend process if it exists
-        if let process = backendManager.process, process.isRunning {
-            let pid = process.processIdentifier
-            print("Killing backend process group (PID: \(pid))...")
-            
-            // Kill process group (includes PyInstaller children)
-            kill(-pid, SIGKILL)
-            kill(pid, SIGKILL)
-            
-            Thread.sleep(forTimeInterval: 0.3)
-            print("Backend terminated")
-        } else if pid > 0 {
-            // Process reference might be gone but we have PID
-            print("Killing backend via stored PID: \(pid)...")
-            kill(-pid, SIGKILL)
-            kill(pid, SIGKILL)
-        } else {
-            print("No backend process to kill")
-        }
+        fileMonitor.stop()
+        print("File monitor stopped, app terminating")
     }
 }
-
-// Window helper extension
-extension NSWindow {
-    static func showSettings(backendManager: BackendManager, webSocketService: WebSocketService) {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Pyile Manager Settings"
-        window.center()
-        window.contentView = NSHostingView(
-            rootView: SettingsWindow(
-                backendManager: backendManager,
-                webSocketService: webSocketService
-            )
-        )
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
