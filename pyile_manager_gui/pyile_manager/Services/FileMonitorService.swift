@@ -156,6 +156,9 @@ class FileMonitorService: ObservableObject {
             }
         }
 
+        // Check if file still exists (may have been deleted as duplicate)
+        guard FileManager.default.fileExists(atPath: currentURL.path) else { return }
+
         // Check if file should be AI-renamed
         if shouldRenameFile(at: currentURL) {
             await renameFileWithAI(at: currentURL)
