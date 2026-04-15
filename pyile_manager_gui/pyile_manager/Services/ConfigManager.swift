@@ -35,9 +35,7 @@ class ConfigManager: ObservableObject {
 
         do {
             let data = try Data(contentsOf: configURL)
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            config = try decoder.decode(AppConfig.self, from: data)
+            config = try JSONDecoder().decode(AppConfig.self, from: data)
             print("Config loaded from \(configURL.path)")
         } catch {
             print("Error loading config: \(error.localizedDescription)")
@@ -48,7 +46,6 @@ class ConfigManager: ObservableObject {
     func save() {
         do {
             let encoder = JSONEncoder()
-            encoder.keyEncodingStrategy = .convertToSnakeCase
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(config)
             try data.write(to: configURL, options: .atomic)
