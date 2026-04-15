@@ -28,6 +28,7 @@ class FileMonitorService: ObservableObject {
         self.configManager = configManager
         let settings = configManager.config.settings
         self.ollamaService = OllamaService(renameModel: settings.renameAi, ocrModel: settings.ocrAi)
+        start()
     }
 
     // MARK: - Public
