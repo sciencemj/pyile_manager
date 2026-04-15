@@ -258,8 +258,9 @@ class FileMonitorService: ObservableObject {
             return
         }
 
-        // Prevent double-rename
+        // Prevent re-processing of the renamed file
         recentlyRenamed.insert(fileURL.path)
+        recentlyMoved.insert(newURL.path)
 
         let event = FileEvent(
             type: "file_renamed",
