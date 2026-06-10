@@ -40,4 +40,21 @@ final class FileEventTests: XCTestCase {
         XCTAssertEqual(decoded.type, "undo")
         XCTAssertEqual(decoded.ref, target)
     }
+
+    func testTrashedDuplicateRoundTripPreservesTrashURL() throws {
+        let event = FileEvent(
+            type: "duplicate_trashed",
+            timestamp: 1750000002,
+            filename: "doc.pdf",
+            from: "/Users/x/Downloads/doc.pdf",
+            destination: "/Users/x/Documents",
+            trashURL: "/Users/x/.Trash/doc.pdf"
+        )
+
+        let data = try JSONEncoder().encode(event)
+        let decoded = try JSONDecoder().decode(FileEvent.self, from: data)
+
+        XCTAssertEqual(decoded.trashURL, "/Users/x/.Trash/doc.pdf")
+        XCTAssertEqual(decoded.from, "/Users/x/Downloads/doc.pdf")
+    }
 }
