@@ -15,6 +15,7 @@ enum UndoError: LocalizedError {
     case originalLocationMissing(String)
     case targetOccupied(String)
     case unsupportedEventType(String)
+    case partial(undone: [UUID], cause: Error)
 
     var errorDescription: String? {
         switch self {
@@ -26,6 +27,8 @@ enum UndoError: LocalizedError {
             return "Cannot undo: another file now exists at \(path)."
         case .unsupportedEventType(let type):
             return "Cannot undo event of type \(type)."
+        case .partial(let undone, let cause):
+            return "Undo incomplete: \(undone.count) linked action(s) were undone before a step failed. \(cause.localizedDescription)"
         }
     }
 }
@@ -35,12 +38,21 @@ struct UndoCoordinator {
     /// Undo an entry. If the entry belongs to a group (move+rename of one file),
     /// the whole not-yet-undone group is reversed, newest first.
     /// Returns the ids of all events that were undone.
+    /// On a mid-chain failure, throws `UndoError.partial` carrying the ids that
+    /// DID succeed on disk — the caller must mark those undone so a retry can
+    /// resume with just the remaining events.
     static func undo(_ entry: HistoryEntry, in history: [HistoryEntry]) throws -> [UUID] {
         let chain = chainFor(entry, in: history)
+        var undone: [UUID] = []
         for item in chain {
-            try undoSingle(item.event)
+            do {
+                try undoSingle(item.event)
+            } catch {
+                throw UndoError.partial(undone: undone, cause: error)
+            }
+            undone.append(item.event.id)
         }
-        return chain.map { $0.event.id }
+        return undone
     }
 
     /// All not-yet-undone events sharing the entry's groupID, newest first.
