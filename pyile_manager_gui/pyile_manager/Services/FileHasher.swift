@@ -11,6 +11,8 @@ import CryptoKit
 struct FileHasher {
 
     /// True only when both files exist and have byte-identical contents.
+    /// Returns false on ANY error (missing, unreadable, I/O failure) —
+    /// false means "not identical OR could not verify", never "safe to assume different".
     static func contentsAreIdentical(_ a: URL, _ b: URL) -> Bool {
         let fm = FileManager.default
         guard let sizeA = (try? fm.attributesOfItem(atPath: a.path))?[.size] as? UInt64,
@@ -28,8 +30,12 @@ struct FileHasher {
         defer { try? handle.close() }
 
         var hasher = SHA256()
-        while let chunk = try? handle.read(upToCount: 1_048_576), !chunk.isEmpty {
-            hasher.update(data: chunk)
+        do {
+            while let chunk = try handle.read(upToCount: 1_048_576), !chunk.isEmpty {
+                hasher.update(data: chunk)
+            }
+        } catch {
+            return nil  // a partial hash must never pass as a verified match
         }
         return hasher.finalize()
     }

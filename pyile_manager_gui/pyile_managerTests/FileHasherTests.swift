@@ -24,6 +24,12 @@ final class FileHasherTests: XCTestCase {
         return url
     }
 
+    private func makeBinaryFile(_ name: String, bytes: Data) throws -> URL {
+        let url = tempDir.appendingPathComponent(name)
+        try bytes.write(to: url)
+        return url
+    }
+
     func testIdenticalContentsCompareEqual() throws {
         let a = try makeFile("a.txt", contents: "same content here")
         let b = try makeFile("b.txt", contents: "same content here")
@@ -46,5 +52,28 @@ final class FileHasherTests: XCTestCase {
         let a = try makeFile("a.txt", contents: "exists")
         let missing = tempDir.appendingPathComponent("missing.txt")
         XCTAssertFalse(FileHasher.contentsAreIdentical(a, missing))
+    }
+
+    func testEmptyFilesCompareEqual() throws {
+        let a = try makeFile("a.txt", contents: "")
+        let b = try makeFile("b.txt", contents: "")
+        XCTAssertTrue(FileHasher.contentsAreIdentical(a, b))
+    }
+
+    func testLargeMultiChunkIdenticalFilesCompareEqual() throws {
+        // ~2.5 MB: forces the 1 MB chunk loop through multiple iterations
+        let contents = Data((0..<2_621_440).map { UInt8($0 % 251) })
+        let a = try makeBinaryFile("big_a.bin", bytes: contents)
+        let b = try makeBinaryFile("big_b.bin", bytes: contents)
+        XCTAssertTrue(FileHasher.contentsAreIdentical(a, b))
+    }
+
+    func testLargeFilesDifferingOnlyInFinalChunkCompareNotEqual() throws {
+        let contentsA = Data((0..<2_621_440).map { UInt8($0 % 251) })
+        var contentsB = contentsA
+        contentsB[contentsB.count - 1] ^= 0xFF  // flip one bit in the last chunk
+        let a = try makeBinaryFile("big_a.bin", bytes: contentsA)
+        let b = try makeBinaryFile("big_b.bin", bytes: contentsB)
+        XCTAssertFalse(FileHasher.contentsAreIdentical(a, b))
     }
 }
