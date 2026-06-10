@@ -28,7 +28,7 @@ class FileMonitorService: ObservableObject {
     var suspendProcessing = false
 
     /// Serializes undo operations; a second click while one runs is dropped.
-    private var isUndoing = false
+    @Published private(set) var isUndoing = false
 
     private static let tempExtensions: Set<String> = ["crdownload", "tmp", "part"]
 

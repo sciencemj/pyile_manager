@@ -61,6 +61,7 @@ struct pyile_managerApp: App {
         .defaultPosition(.center)
         .keyboardShortcut("s", modifiers: [.command])
         .commands {
+
             CommandGroup(replacing: .newItem) {
                 Button("Open Settings") {
                     showSettingsWindow = true
@@ -89,6 +90,13 @@ struct pyile_managerApp: App {
                 .keyboardShortcut("s", modifiers: [.command])
             }
         }
+
+        // History Window (shown on demand)
+        Window("History", id: "history") {
+            HistoryWindow(fileMonitor: fileMonitor)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 
     private func handleQuit() {

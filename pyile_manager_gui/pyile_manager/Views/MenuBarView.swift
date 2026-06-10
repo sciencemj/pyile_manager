@@ -53,7 +53,10 @@ struct MenuBarView: View {
                     ScrollView {
                         VStack(spacing: 4) {
                             ForEach(Array(fileMonitor.recentEvents.prefix(5))) { entry in
-                                EventRow(entry: entry)
+                                EventRow(entry: entry) {
+                                    Task { await fileMonitor.undo(entry) }
+                                }
+                                .disabled(fileMonitor.isUndoing)
                             }
                         }
                     }
@@ -68,6 +71,14 @@ struct MenuBarView: View {
             VStack(spacing: 4) {
                 Button(action: openSettingsWindow) {
                     Label("Open Settings", systemImage: "gearshape")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+
+                Button(action: openHistoryWindow) {
+                    Label("View History", systemImage: "clock.arrow.circlepath")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -112,6 +123,11 @@ struct MenuBarView: View {
         openWindow(id: "settings")
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    private func openHistoryWindow() {
+        openWindow(id: "history")
+        NSApp.activate(ignoringOtherApps: true)
+    }
 }
 
 // MARK: - Supporting Views
@@ -135,6 +151,7 @@ struct StatusIndicator: View {
 
 struct EventRow: View {
     let entry: HistoryEntry
+    var onUndo: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -155,6 +172,15 @@ struct EventRow: View {
             }
 
             Spacer()
+
+            if let onUndo, !entry.undone {
+                Button(action: onUndo) {
+                    Image(systemName: "arrow.uturn.backward.circle")
+                        .foregroundStyle(.blue)
+                }
+                .buttonStyle(.borderless)
+                .help("Undo")
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
