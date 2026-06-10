@@ -27,6 +27,9 @@ class FileMonitorService: ObservableObject {
     /// While true, the FSEvents callback drops all events (set around undo operations).
     var suspendProcessing = false
 
+    /// Serializes undo operations; a second click while one runs is dropped.
+    private var isUndoing = false
+
     private static let tempExtensions: Set<String> = ["crdownload", "tmp", "part"]
 
     init(configManager: ConfigManager) {
@@ -307,7 +310,12 @@ class FileMonitorService: ObservableObject {
     // MARK: - Undo
 
     func undo(_ entry: HistoryEntry) async {
-        guard !entry.undone else { return }
+        // Re-read the live entry: a sibling group-undo may have already
+        // flipped it after this row's HistoryEntry value was captured.
+        guard let live = recentEvents.first(where: { $0.id == entry.id }), !live.undone else { return }
+        guard !isUndoing else { return }
+        isUndoing = true
+        defer { isUndoing = false }
         suspendProcessing = true
 
         let snapshot = recentEvents
