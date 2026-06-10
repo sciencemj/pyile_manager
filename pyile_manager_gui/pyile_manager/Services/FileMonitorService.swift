@@ -28,7 +28,10 @@ class FileMonitorService: ObservableObject {
         self.configManager = configManager
         let settings = configManager.config.settings
         self.ollamaService = OllamaService(renameModel: settings.renameAi, ocrModel: settings.ocrAi)
-        start()
+        // Don't start real FSEvents monitoring inside app-hosted test runs
+        if NSClassFromString("XCTestCase") == nil {
+            start()
+        }
     }
 
     // MARK: - Public
