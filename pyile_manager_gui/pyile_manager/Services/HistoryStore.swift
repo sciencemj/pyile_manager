@@ -12,6 +12,7 @@ import Foundation
 actor HistoryStore {
     private let fileURL: URL
     private let maxFileSize: UInt64 = 1_048_576  // rotate at 1 MB; bounds load time
+    private var currentSize: UInt64 = 0
 
     /// `directory` is injectable for tests; defaults to the app's config directory.
     init(directory: URL? = nil) {
@@ -20,6 +21,7 @@ actor HistoryStore {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.fileURL = dir.appendingPathComponent("history.jsonl")
         rotateIfNeeded()
+        currentSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.size] as? UInt64 ?? 0
     }
 
     func append(_ event: FileEvent) {
@@ -50,7 +52,12 @@ actor HistoryStore {
             }
         }
 
-        return events.suffix(limit).reversed().map {
+        // Appends are fire-and-forget tasks, so file order is not guaranteed
+        // chronological; sort by timestamp (file order breaks ties).
+        let ordered = events.enumerated()
+            .sorted { ($0.element.timestamp, $0.offset) < ($1.element.timestamp, $1.offset) }
+            .map(\.element)
+        return ordered.suffix(limit).reversed().map {
             HistoryEntry(event: $0, undone: undoneIDs.contains($0.id))
         }
     }
@@ -58,6 +65,9 @@ actor HistoryStore {
     // MARK: - Private
 
     private func appendLine(_ data: Data) {
+        if currentSize > maxFileSize {
+            rotateIfNeeded()
+        }
         let fm = FileManager.default
         if !fm.fileExists(atPath: fileURL.path) {
             fm.createFile(atPath: fileURL.path, contents: nil)
@@ -67,6 +77,7 @@ actor HistoryStore {
         do {
             try handle.seekToEnd()
             try handle.write(contentsOf: data + Data("\n".utf8))
+            currentSize += UInt64(data.count) + 1
         } catch {
             print("Failed to append history: \(error.localizedDescription)")
         }
@@ -79,6 +90,7 @@ actor HistoryStore {
         let archived = fileURL.deletingLastPathComponent().appendingPathComponent("history.1.jsonl")
         try? fm.removeItem(at: archived)
         try? fm.moveItem(at: fileURL, to: archived)
+        currentSize = 0
         print("History log rotated to history.1.jsonl")
     }
 }

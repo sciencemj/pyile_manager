@@ -88,4 +88,37 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(entries.count, 1)  // old content rotated away
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("history.1.jsonl").path))
     }
+
+    func testLoadRecentOrdersByTimestampNotFileOrder() async throws {
+        let store = HistoryStore(directory: tempDir)
+        // Append out of chronological order (simulating racing fire-and-forget tasks)
+        let older = FileEvent(type: "file_moved", timestamp: 100,
+                              filename: "older.pdf", from: "/src/older.pdf", to: "/dst/older.pdf", destination: "/dst")
+        let newer = FileEvent(type: "file_moved", timestamp: 200,
+                              filename: "newer.pdf", from: "/src/newer.pdf", to: "/dst/newer.pdf", destination: "/dst")
+        await store.append(newer)
+        await store.append(older)
+
+        let entries = await store.loadRecent(limit: 10)
+
+        XCTAssertEqual(entries.map { $0.event.filename }, ["newer.pdf", "older.pdf"])
+    }
+
+    func testRotationTriggersMidSessionWhenLogGrowsPastThreshold() async throws {
+        let logURL = tempDir.appendingPathComponent("history.jsonl")
+        // Just under 1 MB: init must NOT rotate
+        try String(repeating: "x", count: 1_048_500).write(to: logURL, atomically: true, encoding: .utf8)
+
+        let store = HistoryStore(directory: tempDir)
+        let archiveURL = tempDir.appendingPathComponent("history.1.jsonl")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: archiveURL.path))
+
+        // First append crosses the threshold; second append triggers rotation
+        await store.append(makeEvent("crosser.pdf"))
+        await store.append(makeEvent("fresh.pdf"))
+        let entries = await store.loadRecent(limit: 10)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
+        XCTAssertEqual(entries.map { $0.event.filename }, ["fresh.pdf"])
+    }
 }
