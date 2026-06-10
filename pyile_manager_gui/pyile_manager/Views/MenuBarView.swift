@@ -52,8 +52,8 @@ struct MenuBarView: View {
 
                     ScrollView {
                         VStack(spacing: 4) {
-                            ForEach(Array(fileMonitor.recentEvents.prefix(5))) { event in
-                                EventRow(event: event)
+                            ForEach(Array(fileMonitor.recentEvents.prefix(5))) { entry in
+                                EventRow(entry: entry)
                             }
                         }
                     }
@@ -134,20 +134,22 @@ struct StatusIndicator: View {
 }
 
 struct EventRow: View {
-    let event: FileEvent
+    let entry: HistoryEntry
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: event.displayIcon)
-                .foregroundStyle(event.type == "file_moved" ? .blue : .green)
+            Image(systemName: entry.event.displayIcon)
+                .foregroundStyle(entry.event.type == "file_moved" ? .blue : .green)
                 .font(.caption)
                 .frame(width: 16)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.displayText)
+                Text(entry.event.displayText)
                     .font(.caption)
                     .lineLimit(1)
-                Text(timeAgo(from: event.timestamp))
+                    .strikethrough(entry.undone)
+                    .foregroundStyle(entry.undone ? .secondary : .primary)
+                Text(timeAgo(from: entry.event.timestamp))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

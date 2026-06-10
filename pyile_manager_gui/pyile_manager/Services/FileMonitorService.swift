@@ -13,14 +13,15 @@ import UserNotifications
 @MainActor
 class FileMonitorService: ObservableObject {
     @Published var isMonitoring = false
-    @Published var recentEvents: [FileEvent] = []
+    @Published var recentEvents: [HistoryEntry] = []
 
     private let configManager: ConfigManager
     private let ollamaService: OllamaService
+    private let historyStore = HistoryStore()
     private var eventStream: FSEventStreamRef?
     private var recentlyRenamed: Set<String> = []
     private var recentlyMoved: Set<String> = []
-    private let maxRecentEvents = 10
+    private let maxRecentEvents = 50
 
     private static let tempExtensions: Set<String> = ["crdownload", "tmp", "part"]
 
@@ -28,9 +29,18 @@ class FileMonitorService: ObservableObject {
         self.configManager = configManager
         let settings = configManager.config.settings
         self.ollamaService = OllamaService(renameModel: settings.renameAi, ocrModel: settings.ocrAi)
+
         // Don't start real FSEvents monitoring inside app-hosted test runs
         if NSClassFromString("XCTestCase") == nil {
             start()
+        }
+
+        // Load persisted history asynchronously — never blocks launch,
+        // never triggers notifications (only live addEvent does).
+        Task { [weak self] in
+            guard let self else { return }
+            let entries = await self.historyStore.loadRecent(limit: self.maxRecentEvents)
+            self.recentEvents = entries
         }
     }
 
@@ -166,25 +176,26 @@ class FileMonitorService: ObservableObject {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
 
         var currentURL = fileURL
+        let groupID = UUID()  // links this file's move + rename for group undo
 
         // Try to sort file by download source URL
         if let sourceURL = MetadataExtractor.getDownloadSourceURL(for: fileURL) {
-            if let newURL = await sortFileByURL(fileURL, filename: filename, sourceURL: sourceURL) {
+            if let newURL = await sortFileByURL(fileURL, filename: filename, sourceURL: sourceURL, groupID: groupID) {
                 currentURL = newURL
                 try? await Task.sleep(for: .milliseconds(500)) // Wait for file system to settle
             }
         }
 
-        // Check if file still exists (may have been deleted as duplicate)
+        // Check if file still exists (may have been trashed as duplicate)
         guard FileManager.default.fileExists(atPath: currentURL.path) else { return }
 
         // Check if file should be AI-renamed
         if shouldRenameFile(at: currentURL) {
-            await renameFileWithAI(at: currentURL)
+            await renameFileWithAI(at: currentURL, groupID: groupID)
         }
     }
 
-    private func sortFileByURL(_ fileURL: URL, filename: String, sourceURL: String) async -> URL? {
+    private func sortFileByURL(_ fileURL: URL, filename: String, sourceURL: String, groupID: UUID) async -> URL? {
         let config = configManager.config
 
         guard let destination = URLMatcher.matchURL(sourceURL, against: config.schema.move.url) else {
@@ -206,6 +217,7 @@ class FileMonitorService: ObservableObject {
             let event = FileEvent(
                 type: "file_moved",
                 timestamp: Date().timeIntervalSince1970,
+                groupID: groupID,
                 filename: filename,
                 from: fileURL.path,
                 to: newURL.path,
@@ -215,7 +227,16 @@ class FileMonitorService: ObservableObject {
             return newURL
 
         case .duplicateTrashed(let trashURL):
-            print("Duplicate moved to Trash: \(filename) -> \(trashURL?.path ?? "unknown")")
+            let event = FileEvent(
+                type: "duplicate_trashed",
+                timestamp: Date().timeIntervalSince1970,
+                groupID: groupID,
+                filename: filename,
+                from: fileURL.path,
+                destination: destination,
+                trashURL: trashURL?.path
+            )
+            addEvent(event)
             return nil
 
         case .duplicateSkipped:
@@ -251,7 +272,7 @@ class FileMonitorService: ObservableObject {
         return false
     }
 
-    private func renameFileWithAI(at fileURL: URL) async {
+    private func renameFileWithAI(at fileURL: URL, groupID: UUID) async {
         print("AI renaming: \(fileURL.path)")
         guard let newName = await ollamaService.renameFileWithAI(at: fileURL) else {
             print("Failed to rename file: \(fileURL.path)")
@@ -269,6 +290,7 @@ class FileMonitorService: ObservableObject {
         let event = FileEvent(
             type: "file_renamed",
             timestamp: Date().timeIntervalSince1970,
+            groupID: groupID,
             oldName: fileURL.lastPathComponent,
             newName: newURL.lastPathComponent,
             path: newURL.deletingLastPathComponent().path,
@@ -279,18 +301,27 @@ class FileMonitorService: ObservableObject {
 
     // MARK: - Events
 
+    /// Live events only: persists to the history log and notifies.
+    /// History loaded at launch goes straight to recentEvents and never lands here.
     private func addEvent(_ event: FileEvent) {
-        recentEvents.insert(event, at: 0)
+        recentEvents.insert(HistoryEntry(event: event, undone: false), at: 0)
         if recentEvents.count > maxRecentEvents {
             recentEvents = Array(recentEvents.prefix(maxRecentEvents))
         }
+        Task { await historyStore.append(event) }
         showNotification(for: event)
     }
 
     private func showNotification(for event: FileEvent) {
         let content = UNMutableNotificationContent()
         content.title = "Pyile Manager"
-        content.subtitle = event.type == "file_moved" ? "File Organized" : "File Renamed"
+        content.subtitle = {
+            switch event.type {
+            case "file_moved": return "File Organized"
+            case "duplicate_trashed": return "Duplicate Moved to Trash"
+            default: return "File Renamed"
+            }
+        }()
         content.body = event.displayText
         content.sound = .default
 
