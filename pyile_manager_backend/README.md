@@ -1,4 +1,7 @@
-# Pyile Manager
+# Pyile Manager (Legacy Python Backend)
+
+> [!WARNING]
+> **This backend is no longer supported.** The app has been rewritten as a fully native Swift application — all file monitoring, auto-sorting, and AI renaming now run inside the SwiftUI app in [`pyile_manager_gui/`](../pyile_manager_gui/), with no Python process, HTTP server, or PyInstaller executable involved. This directory is kept for reference only and receives no updates. See the [main README](../README.md) for the current architecture.
 
 AI-powered intelligent file manager for macOS with automatic file organization and AI-based renaming.
 
