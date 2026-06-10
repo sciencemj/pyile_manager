@@ -8,32 +8,31 @@
 
 /* Begin PBXFileReference section */
 		CC0C1E142F30C260005C958B /* Pyile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pyile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC0D00062F30C260005C958B /* pyile_managerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = pyile_managerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		CC0B3F432F6A61F4007599FA /* Exceptions for "pyile_manager" folder in "pyile_manager" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Resources/pyile_manager 2026-02-24 23-45-11/Pyile_old.app",
-				Resources/pyile_manager_old/Pyile_old.app,
-			);
-			target = CC0C1E132F30C260005C958B /* pyile_manager */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CC0C1E162F30C260005C958B /* pyile_manager */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				CC0B3F432F6A61F4007599FA /* Exceptions for "pyile_manager" folder in "pyile_manager" target */,
-			);
 			path = pyile_manager;
+			sourceTree = "<group>";
+		};
+		CC0D00012F30C260005C958B /* pyile_managerTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = pyile_managerTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CC0C1E112F30C260005C958B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC0D00042F30C260005C958B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -47,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				CC0C1E162F30C260005C958B /* pyile_manager */,
+				CC0D00012F30C260005C958B /* pyile_managerTests */,
 				CC0C1E152F30C260005C958B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				CC0C1E142F30C260005C958B /* Pyile.app */,
+				CC0D00062F30C260005C958B /* pyile_managerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -84,6 +85,28 @@
 			productReference = CC0C1E142F30C260005C958B /* Pyile.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CC0D00022F30C260005C958B /* pyile_managerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC0D00072F30C260005C958B /* Build configuration list for PBXNativeTarget "pyile_managerTests" */;
+			buildPhases = (
+				CC0D00032F30C260005C958B /* Sources */,
+				CC0D00042F30C260005C958B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC0D00052F30C260005C958B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CC0D00012F30C260005C958B /* pyile_managerTests */,
+			);
+			name = pyile_managerTests;
+			packageProductDependencies = (
+			);
+			productName = pyile_managerTests;
+			productReference = CC0D00062F30C260005C958B /* pyile_managerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -92,10 +115,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					CC0C1E132F30C260005C958B = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					CC0D00022F30C260005C958B = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = CC0C1E132F30C260005C958B;
 					};
 				};
 			};
@@ -114,6 +141,7 @@
 			projectRoot = "";
 			targets = (
 				CC0C1E132F30C260005C958B /* pyile_manager */,
+				CC0D00022F30C260005C958B /* pyile_managerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -136,7 +164,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC0D00032F30C260005C958B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CC0D00052F30C260005C958B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC0C1E132F30C260005C958B /* pyile_manager */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		CC0C1E1D2F30C261005C958B /* Debug */ = {
@@ -173,6 +215,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 4372V3T39A;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -198,6 +241,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -237,6 +281,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 4372V3T39A;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -255,6 +300,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -269,6 +315,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4372V3T39A;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -281,6 +328,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.sciencemj.pyile-manager";
+				PRODUCT_MODULE_NAME = pyile_manager;
 				PRODUCT_NAME = Pyile;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -303,6 +351,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4372V3T39A;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -315,6 +364,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.sciencemj.pyile-manager";
+				PRODUCT_MODULE_NAME = pyile_manager;
 				PRODUCT_NAME = Pyile;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -324,6 +374,46 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CC0D00082F30C260005C958B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4372V3T39A;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sciencemj.pyile-managerTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pyile.app/Contents/MacOS/Pyile";
+			};
+			name = Debug;
+		};
+		CC0D00092F30C260005C958B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4372V3T39A;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sciencemj.pyile-managerTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pyile.app/Contents/MacOS/Pyile";
 			};
 			name = Release;
 		};
@@ -344,6 +434,15 @@
 			buildConfigurations = (
 				CC0C1E202F30C261005C958B /* Debug */,
 				CC0C1E212F30C261005C958B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC0D00072F30C260005C958B /* Build configuration list for PBXNativeTarget "pyile_managerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC0D00082F30C260005C958B /* Debug */,
+				CC0D00092F30C260005C958B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
