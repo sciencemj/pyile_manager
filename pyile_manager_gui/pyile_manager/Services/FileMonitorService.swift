@@ -214,8 +214,8 @@ class FileMonitorService: ObservableObject {
             addEvent(event)
             return newURL
 
-        case .duplicateRemoved:
-            print("Duplicate removed: \(filename)")
+        case .duplicateTrashed(let trashURL):
+            print("Duplicate moved to Trash: \(filename) -> \(trashURL?.path ?? "unknown")")
             return nil
 
         case .duplicateSkipped:
