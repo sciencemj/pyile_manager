@@ -14,6 +14,7 @@ import UserNotifications
 class FileMonitorService: ObservableObject {
     @Published var isMonitoring = false
     @Published var recentEvents: [HistoryEntry] = []
+    @Published var undoError: String?
 
     private let configManager: ConfigManager
     private let ollamaService: OllamaService
@@ -22,6 +23,9 @@ class FileMonitorService: ObservableObject {
     private var recentlyRenamed: Set<String> = []
     private var recentlyMoved: Set<String> = []
     private let maxRecentEvents = 50
+
+    /// While true, the FSEvents callback drops all events (set around undo operations).
+    var suspendProcessing = false
 
     private static let tempExtensions: Set<String> = ["crdownload", "tmp", "part"]
 
@@ -124,6 +128,7 @@ class FileMonitorService: ObservableObject {
         let flags = Array(UnsafeBufferPointer(start: eventFlags, count: numEvents))
 
         for i in 0..<numEvents {
+            if monitor.suspendProcessing { continue }
             let path = paths[i]
             let flag = Int(flags[i])
 
@@ -297,6 +302,52 @@ class FileMonitorService: ObservableObject {
             fullPath: newURL.path
         )
         addEvent(event)
+    }
+
+    // MARK: - Undo
+
+    func undo(_ entry: HistoryEntry) async {
+        guard !entry.undone else { return }
+        suspendProcessing = true
+
+        let snapshot = recentEvents
+        // File I/O off the main actor; FileEvent/HistoryEntry are value types.
+        let result: Result<[UUID], Error> = await Task.detached {
+            do { return .success(try UndoCoordinator.undo(entry, in: snapshot)) }
+            catch { return .failure(error) }
+        }.value
+
+        switch result {
+        case .success(let undoneIDs):
+            markUndone(undoneIDs)
+            undoError = nil
+        case .failure(let error):
+            if case UndoError.partial(let undoneIDs, let cause) = error {
+                // Mark what DID happen on disk so a retry resumes with the rest
+                markUndone(undoneIDs)
+                undoError = undoneIDs.isEmpty ? cause.localizedDescription : error.localizedDescription
+            } else {
+                undoError = error.localizedDescription
+            }
+        }
+
+        // Let the FSEvents coalescing window (1.0s stream latency) drain
+        // before resuming, so the restored file is not re-processed.
+        try? await Task.sleep(for: .seconds(2.5))
+        suspendProcessing = false
+    }
+
+    /// Flip the in-memory flags and persist undo records. Never routes through
+    /// addEvent — undo records must not notify or render as events.
+    private func markUndone(_ ids: [UUID]) {
+        for id in ids {
+            if let idx = recentEvents.firstIndex(where: { $0.event.id == id }) {
+                recentEvents[idx].undone = true
+            }
+        }
+        Task { [historyStore] in
+            for id in ids { await historyStore.appendUndo(of: id) }
+        }
     }
 
     // MARK: - Events
