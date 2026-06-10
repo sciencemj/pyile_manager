@@ -33,7 +33,7 @@ enum UndoError: LocalizedError {
     }
 }
 
-struct UndoCoordinator {
+nonisolated struct UndoCoordinator {
 
     /// Undo an entry. If the entry belongs to a group (move+rename of one file),
     /// the whole not-yet-undone group is reversed, newest first.
